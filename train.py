@@ -10,7 +10,6 @@ from dataset import HorseZebraDataset
 from model import Discriminator, Generator
 import os
 
-# Configuration
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 TRAIN_DIR_HORSE = "dataset/horse2zebra/trainB"
 TRAIN_DIR_ZEBRA = "dataset/horse2zebra/trainA"
@@ -22,7 +21,7 @@ LAMBDA_IDENTITY = 0.0
 LAMBDA_CYCLE = 10
 NUM_WORKERS = 4
 NUM_EPOCHS = 10
-SAVE_DIR = "saved_images"  # Directory to save images
+SAVE_DIR = "saved_images" 
 
 transforms = A.Compose(
     [
@@ -34,7 +33,6 @@ transforms = A.Compose(
     additional_targets={"image0": "image"},
 )
 
-# Ensure the save directory exists
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d_scaler, g_scaler):
@@ -46,7 +44,7 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
         zebra = zebra.to(DEVICE)
         horse = horse.to(DEVICE)
 
-        # Train Discriminators H and Z
+
         with torch.cuda.amp.autocast():
             fake_horse = gen_H(zebra)
             D_H_real = disc_H(horse)
@@ -64,7 +62,6 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
             D_Z_fake_loss = mse(D_Z_fake, torch.zeros_like(D_Z_fake))
             D_Z_loss = D_Z_real_loss + D_Z_fake_loss
 
-            # Combine losses
             D_loss = (D_H_loss + D_Z_loss) / 2
 
         opt_disc.zero_grad()
@@ -72,7 +69,6 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
         d_scaler.step(opt_disc)
         d_scaler.update()
 
-        # Train Generators H and Z
         with torch.cuda.amp.autocast():
             D_H_fake = disc_H(fake_horse)
             D_Z_fake = disc_Z(fake_zebra)
@@ -109,26 +105,21 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
 
         loop.set_postfix(H_real=H_reals / (idx + 1), H_fake=H_fakes / (idx + 1))
 
-if __name__ == "__main__":
-    # Initialize models
+if __name__ == "__main__": # Use this to avoid errors because of multiprocessing!
     disc_H = Discriminator(in_channels=3).to(DEVICE)
     disc_Z = Discriminator(in_channels=3).to(DEVICE)
     gen_Z = Generator(img_channels=3, num_residuals=9).to(DEVICE)
     gen_H = Generator(img_channels=3, num_residuals=9).to(DEVICE)
 
-    # Optimizers
     opt_disc = optim.Adam(
         list(disc_H.parameters()) + list(disc_Z.parameters()), lr=LEARNING_RATE, betas=(0.5, 0.999)
     )
     opt_gen = optim.Adam(
         list(gen_Z.parameters()) + list(gen_H.parameters()), lr=LEARNING_RATE, betas=(0.5, 0.999)
     )
-
-    # Loss functions
     L1 = nn.L1Loss()
     mse = nn.MSELoss()
 
-    # Dataset and Dataloader
     train_dataset = HorseZebraDataset(
         root_horse=TRAIN_DIR_HORSE, root_zebra=TRAIN_DIR_ZEBRA, transform=transforms
     )
@@ -142,7 +133,6 @@ if __name__ == "__main__":
         val_dataset, batch_size=1, shuffle=False, pin_memory=True
     )
 
-    # Training loop
     d_scaler = torch.cuda.amp.GradScaler()
     g_scaler = torch.cuda.amp.GradScaler()
 
